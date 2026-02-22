@@ -7,7 +7,7 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    environment: frontend
+    environment: frotnend
     
     steps:
       - name: Checkout
