@@ -25,19 +25,35 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
-      - name: Upload to Pinata via curl
+      - name: Upload to Pinata
+        env:
+          PINATA_JWT: ${{ secrets.PINATA_JWT }}
         run: |
-          cd out
-          # Construir args de archivo para curl
-          FILES=$(find . -type f | sort | sed 's|^\./||' | xargs -I{} echo "-F file=@\"{}\";filename=\"lyzerd/{}\""  | tr '\n' ' ')
-          RESPONSE=$(eval curl -s -X POST \
-            "https://api.pinata.cloud/pinning/pinFileToIPFS" \
-            -H "Authorization: Bearer ${{ secrets.PINATA_JWT }}" \
-            -F 'pinataOptions={"cidVersion":1}' \
-            -F 'pinataMetadata={"name":"lyzerd-frontend"}' \
-            $FILES)
-          echo "Response: $RESPONSE"
-          CID=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['IpfsHash'])")
-          echo "✅ CID: $CID"
-          echo "🌐 https://gateway.pinata.cloud/ipfs/$CID"
-          echo "🌐 https://$CID.ipfs.dweb.link"
+          pip install requests --quiet
+          python3 << 'EOF'
+          import os, requests, mimetypes
+          from pathlib import Path
+
+          jwt = os.environ["PINATA_JWT"]
+          out_dir = Path("out")
+
+          files = []
+          for f in sorted(out_dir.rglob("*")):
+              if f.is_file():
+                  rel = str(f.relative_to(out_dir))
+                  mime = mimetypes.guess_type(str(f))[0] or "application/octet-stream"
+                  files.append(("file", (f"lyzerd/{rel}", open(f, "rb"), mime)))
+
+          res = requests.post(
+              "https://api.pinata.cloud/pinning/pinFileToIPFS",
+              headers={"Authorization": f"Bearer {jwt}"},
+              files=files,
+              data={"pinataMetadata": '{"name":"lyzerd-frontend"}', "pinataOptions": '{"cidVersion":1}'}
+          )
+          data = res.json()
+          print("Response:", data)
+          cid = data["IpfsHash"]
+          print(f"CID: {cid}")
+          print(f"URL: https://gateway.pinata.cloud/ipfs/{cid}")
+          print(f"IPFS: https://{cid}.ipfs.dweb.link")
+          EOF
