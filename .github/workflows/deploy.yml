@@ -1,40 +1,15 @@
-name: Deploy to IPFS (Pinata)
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20
-
-      - name: Install dependencies
-        run: npm install
-
-      - name: Build static export
-        run: npm run build
+- name: Upload to Pinata
         env:
-          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
-
-      - name: Upload to Pinata
-        env:
-          PINATA_JWT: ${{ secrets.PINATA_JWT }}
+          PINATA_KEY: ${{ secrets.PINATA_KEY }}
+          PINATA_SECRET: ${{ secrets.PINATA_SECRET }}
         run: |
           pip install requests --quiet
           python3 << 'EOF'
           import os, requests, mimetypes
           from pathlib import Path
 
-          jwt = os.environ["PINATA_JWT"]
+          key    = os.environ["PINATA_KEY"]
+          secret = os.environ["PINATA_SECRET"]
           out_dir = Path("out")
 
           files = []
@@ -46,9 +21,15 @@ jobs:
 
           res = requests.post(
               "https://api.pinata.cloud/pinning/pinFileToIPFS",
-              headers={"Authorization": f"Bearer {jwt}"},
+              headers={
+                  "pinata_api_key": key,
+                  "pinata_secret_api_key": secret
+              },
               files=files,
-              data={"pinataMetadata": '{"name":"lyzerd-frontend"}', "pinataOptions": '{"cidVersion":1}'}
+              data={
+                  "pinataMetadata": '{"name":"lyzerd-frontend"}',
+                  "pinataOptions": '{"cidVersion":1}'
+              }
           )
           data = res.json()
           print("Response:", data)
@@ -57,6 +38,3 @@ jobs:
           print(f"URL: https://gateway.pinata.cloud/ipfs/{cid}")
           print(f"IPFS: https://{cid}.ipfs.dweb.link")
           EOF
-
-
-# hola
