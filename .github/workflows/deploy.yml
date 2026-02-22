@@ -25,13 +25,9 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
-      - name: Upload to Pinata
-        env:
-          PINATA_KEY: ${{ secrets.PINATA_KEY }}
-          PINATA_SECRET: ${{ secrets.PINATA_SECRET }}
+      - name: Write upload script
         run: |
-          pip install requests --quiet
-          python3 << 'EOF'
+          cat > /tmp/upload.py << 'PYEOF'
           import os, requests, mimetypes
           from pathlib import Path
 
@@ -64,4 +60,12 @@ jobs:
           print(f"CID: {cid}")
           print(f"URL: https://gateway.pinata.cloud/ipfs/{cid}")
           print(f"IPFS: https://{cid}.ipfs.dweb.link")
-          EOF
+          PYEOF
+
+      - name: Upload to Pinata
+        env:
+          PINATA_KEY: ${{ secrets.PINATA_KEY }}
+          PINATA_SECRET: ${{ secrets.PINATA_SECRET }}
+        run: |
+          pip install requests --quiet
+          python3 /tmp/upload.py
