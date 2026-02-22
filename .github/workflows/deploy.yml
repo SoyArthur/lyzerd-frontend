@@ -25,17 +25,19 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
-      - name: Pin /out folder to Pinata IPFS
-        uses: aquiladev/ipfs-action@v0.3.1
-        id: pinata
-        with:
-          path: ./out
-          service: pinata
-          pinataJWT: ${{ secrets.PINATA_JWT }}
-          pinName: lyzerd-frontend
-
-      - name: Print live URLs
+      - name: Upload to Pinata via curl
         run: |
-          echo "CID: ${{ steps.pinata.outputs.hash }}"
-          echo "Pinata: https://gateway.pinata.cloud/ipfs/${{ steps.pinata.outputs.hash }}"
-          echo "IPFS:   https://${{ steps.pinata.outputs.hash }}.ipfs.dweb.link"
+          cd out
+          # Construir args de archivo para curl
+          FILES=$(find . -type f | sort | sed 's|^\./||' | xargs -I{} echo "-F file=@\"{}\";filename=\"lyzerd/{}\""  | tr '\n' ' ')
+          RESPONSE=$(eval curl -s -X POST \
+            "https://api.pinata.cloud/pinning/pinFileToIPFS" \
+            -H "Authorization: Bearer ${{ secrets.PINATA_JWT }}" \
+            -F 'pinataOptions={"cidVersion":1}' \
+            -F 'pinataMetadata={"name":"lyzerd-frontend"}' \
+            $FILES)
+          echo "Response: $RESPONSE"
+          CID=$(echo $RESPONSE | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['IpfsHash'])")
+          echo "✅ CID: $CID"
+          echo "🌐 https://gateway.pinata.cloud/ipfs/$CID"
+          echo "🌐 https://$CID.ipfs.dweb.link"
