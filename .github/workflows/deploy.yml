@@ -25,47 +25,11 @@ jobs:
         env:
           NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
 
-      - name: Write upload script
-        run: |
-          cat > /tmp/upload.py << 'PYEOF'
-          import os, requests, mimetypes
-          from pathlib import Path
-
-          key    = os.environ["PINATA_KEY"]
-          secret = os.environ["PINATA_SECRET"]
-          out_dir = Path("out")
-
-          files = []
-          for f in sorted(out_dir.rglob("*")):
-              if f.is_file():
-                  rel = str(f.relative_to(out_dir))
-                  mime = mimetypes.guess_type(str(f))[0] or "application/octet-stream"
-                  files.append(("file", (f"lyzerd/{rel}", open(f, "rb"), mime)))
-
-          res = requests.post(
-              "https://api.pinata.cloud/pinning/pinFileToIPFS",
-              headers={
-                  "pinata_api_key": key,
-                  "pinata_secret_api_key": secret
-              },
-              files=files,
-              data={
-                  "pinataMetadata": '{"name":"lyzerd-frontend"}',
-                  "pinataOptions": '{"cidVersion":1}'
-              }
-          )
-          data = res.json()
-          print("Response:", data)
-          cid = data["IpfsHash"]
-          print(f"CID: {cid}")
-          print(f"URL: https://gateway.pinata.cloud/ipfs/{cid}")
-          print(f"IPFS: https://{cid}.ipfs.dweb.link")
-          PYEOF
+      - name: Install form-data
+        run: npm install form-data node-fetch@2 --no-save
 
       - name: Upload to Pinata
+        run: node upload.js
         env:
           PINATA_KEY: ${{ secrets.PINATA_KEY }}
           PINATA_SECRET: ${{ secrets.PINATA_SECRET }}
-        run: |
-          pip install requests --quiet
-          python3 /tmp/upload.py
