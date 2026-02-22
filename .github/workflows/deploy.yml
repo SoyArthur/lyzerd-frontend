@@ -1,0 +1,42 @@
+name: Deploy to IPFS (Pinata)
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Build static export
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ secrets.NEXT_PUBLIC_API_URL }}
+
+      - name: Pin /out folder to Pinata IPFS
+        uses: aquiladev/ipfs-action@v0.3.1
+        id: pinata
+        with:
+          path: ./out
+          service: pinata
+          pinataKey: ${{ secrets.PINATA_JWT }}
+          pinataPinName: lyzerd-frontend
+
+      - name: Print live URLs
+        run: |
+          echo "CID: ${{ steps.pinata.outputs.hash }}"
+          echo "Pinata: https://gateway.pinata.cloud/ipfs/${{ steps.pinata.outputs.hash }}"
+          echo "IPFS:   https://${{ steps.pinata.outputs.hash }}.ipfs.dweb.link"
